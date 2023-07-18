@@ -7,7 +7,8 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ['id','slug','title']
 
 class MenuItemSerializer(serializers.ModelSerializer):
-    category = serializers.StringRelatedField()
+    category = CategorySerializer(read_only=True)
+    category_id = serializers.IntegerField(write_only=True)
     class Meta:
         model = MenuItem
-        fields = ['id','title','price','featured','category']
+        fields = ['id','title','price','featured','category','category_id']
