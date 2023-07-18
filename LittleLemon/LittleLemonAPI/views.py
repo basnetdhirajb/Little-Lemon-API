@@ -1,12 +1,14 @@
 from django.shortcuts import render, get_object_or_404
-from rest_framework import status
+from rest_framework import status, authentication, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from .serializers import MenuItemSerializer, CategorySerializer
+from .serializers import MenuItemSerializer, CategorySerializer, UserSerializer
 from .models import MenuItem, Category
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
+from django.contrib.auth.models import User, Group
 
-# Create your views here.
+# Using function based view
 @api_view(['GET','POST','PATCH','PUT','DELETE'])
 @permission_classes([IsAuthenticated])
 def menu_items(request):
@@ -19,7 +21,7 @@ def menu_items(request):
             serialized_item = MenuItemSerializer(data=request.data)
             serialized_item.is_valid(raise_exception=True)
             serialized_item.save()
-            return Response({'message':'OK'},status.HTTP_200_OK)
+            return Response({'message':'OK'},status.HTTP_201_CREATED)
         else:
             return Response({'message':'Unauthorized'},status.HTTP_403_FORBIDDEN)
             
@@ -59,3 +61,58 @@ def each_menu_item(request, menuItem):
             return Response({'message':'Deleted'}, status.HTTP_200_OK)
         else:
             return Response({'message':'Unauthorized'}, status.HTTP_403_FORBIDDEN)   
+        
+
+#Using class based view
+        
+class ListUsers(APIView):
+    authentication_classes = [authentication.TokenAuthentication]
+    permission_classes = [permissions.IsAdminUser]
+    
+    def get(self,request):
+        users = User.objects.filter(groups__name='Manager')
+        serialized_item = UserSerializer(users,many=True)
+        return Response(serialized_item.data, status.HTTP_200_OK)
+    
+    def post(self, request):
+        username = request.data['username']
+        if username:
+            user = get_object_or_404(User, username = username)
+            managers = Group.objects.get(name = "Manager")
+            managers.user_set.add(user)
+            return Response({'message':'User Assigned to Manager'}, status.HTTP_201_CREATED)
+
+    def delete(self, request, userID):
+        user = get_object_or_404(User, id = userID)
+        if user.groups.filter(name = 'Manager').exists():  #check if the user belongs to the manager group
+            managers = Group.objects.get(name = "Manager")
+            managers.user_set.remove(user)
+            return  Response({'message':'User Removed from Manager'}, status.HTTP_200_OK)
+        else:
+            return Response({'message':'User is not part of the manager group'}, status.HTTP_200_OK)
+
+@api_view(['GET','POST','DELETE'])
+@permission_classes([IsAuthenticated, permissions.IsAdminUser])
+def list_delivery_crew(request):
+    if request.method == 'GET':
+        users = User.objects.filter(groups__name='Delivery Crew')
+        serialized_item = UserSerializer(users, many = True)
+        return Response(serialized_item.data, status.HTTP_200_OK)
+    if request.method == 'POST':
+        username = request.data['username']
+        if username:
+            user = get_object_or_404(User, username = username)
+            delivery_crew = Group.objects.get(name = 'Delivery Crew')
+            delivery_crew.user_set.add(user)
+            return Response({'message':'User added to delivery crew'}, status.HTTP_201_CREATED)
+        
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated, permissions.IsAuthenticated])
+def remove_delivery_crew(request, userID):
+    user = get_object_or_404(User, id = userID)
+    if user.groups.filter(name = 'Delivery Crew').exists():
+        delivery_crew = Group.objects.get(name='Delivery Crew')
+        delivery_crew.user_set.remove(user)
+        return Response({'message':'User removed from Delivery Crew'}, status.HTTP_200_OK)
+    else:
+        return Response({'message':'User not part of delivery crew'}, status.HTTP_200_OK)
