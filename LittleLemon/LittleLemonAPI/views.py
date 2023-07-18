@@ -40,7 +40,7 @@ def each_menu_item(request, menuItem):
             serialized_item = MenuItemSerializer(item,data=request.data)
             serialized_item.is_valid(raise_exception=True)
             serialized_item.save()
-            return Response({'message':'Updated'}, status.HTTP_200_OK)
+            return Response({'message':'PUT Updated'}, status.HTTP_200_OK)
         else:
             return Response({'message':'Unauthorized'}, status.HTTP_403_FORBIDDEN)
     elif request.method == 'PATCH':
@@ -49,12 +49,12 @@ def each_menu_item(request, menuItem):
             serialized_item = MenuItemSerializer(item,data=request.data,partial = True)
             serialized_item.is_valid(raise_exception=True)
             serialized_item.save()
-            return Response({'message':'Updated'}, status.HTTP_200_OK)
+            return Response({'message':'Patch Updated'}, status.HTTP_200_OK)
         else:
             return Response({'message':'Unauthorized'}, status.HTTP_403_FORBIDDEN)   
     elif request.method == 'DELETE':
-        if(request.user.groups.filter(name='Manager').exists()):
-            item = MenuItem.objects.get(title = MenuItem)
+        if request.user.groups.filter(name='Manager').exists():
+            item = MenuItem.objects.get(title = menuItem)
             item.delete()
             return Response({'message':'Deleted'}, status.HTTP_200_OK)
         else:
