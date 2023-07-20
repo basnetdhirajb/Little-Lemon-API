@@ -32,6 +32,9 @@ class Cart(models.Model):
         #means that a user can have only one instance of menu item, so the quantity could only
         #change for the menuitem but two menu items cannot be on 2 different rows for a user in
         #a single cart
+    
+    def __str__(self):
+        return str(self.user.username) + "\'s cart"
 
 class Order(models.Model):
     user = models.ForeignKey(User, on_delete= models.CASCADE)

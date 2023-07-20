@@ -2,11 +2,12 @@ from django.shortcuts import render, get_object_or_404
 from rest_framework import status, authentication, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from .serializers import MenuItemSerializer, CategorySerializer, UserSerializer
+from .serializers import *
 from .models import MenuItem, Category
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from django.contrib.auth.models import User, Group
+from rest_framework import viewsets
 
 # Using function based view
 @api_view(['GET','POST','PATCH','PUT','DELETE'])
@@ -91,7 +92,7 @@ class ListUsers(APIView):
         else:
             return Response({'message':'User is not part of the manager group'}, status.HTTP_200_OK)
 
-@api_view(['GET','POST','DELETE'])
+@api_view(['GET','POST'])
 @permission_classes([IsAuthenticated, permissions.IsAdminUser])
 def list_delivery_crew(request):
     if request.method == 'GET':
@@ -107,7 +108,7 @@ def list_delivery_crew(request):
             return Response({'message':'User added to delivery crew'}, status.HTTP_201_CREATED)
         
 @api_view(['DELETE'])
-@permission_classes([IsAuthenticated, permissions.IsAuthenticated])
+@permission_classes([IsAuthenticated, permissions.IsAdminUser])
 def remove_delivery_crew(request, userID):
     user = get_object_or_404(User, id = userID)
     if user.groups.filter(name = 'Delivery Crew').exists():
@@ -116,3 +117,39 @@ def remove_delivery_crew(request, userID):
         return Response({'message':'User removed from Delivery Crew'}, status.HTTP_200_OK)
     else:
         return Response({'message':'User not part of delivery crew'}, status.HTTP_200_OK)
+    
+#using viewsets
+class ManageCart(viewsets.ModelViewSet):
+    authentication_classes = [authentication.TokenAuthentication]
+    serializer_class = CartSerializer
+    queryset = Cart.objects.all()
+    
+    def list(self, request):
+            user = request.user
+            cart = Cart.objects.filter(user = user)
+            serialized_item = CartSerializer(cart, many = True)
+            return Response(serialized_item.data, status.HTTP_200_OK)
+       
+    def create(self, request):
+        user = request.user
+        menuItem = MenuItem.objects.get(title = request.data['menuItem'])
+        quantity = request.data['quantity']
+        unitPrice = menuItem.price
+        data_to_pass = {
+            'user_id' : user.id,
+            'menuitem_id': menuItem.id,
+            'quantity':quantity,
+            'unit_price':unitPrice,
+            'price':int(quantity)*int(unitPrice),
+        }
+        
+        serialized_item = CartSerializer(data = data_to_pass)
+        serialized_item.is_valid()
+        serialized_item.save()
+        return Response({'message':'Item added to the cart'}, status.HTTP_200_OK)
+    
+    def destroy(self, request):
+        userID = request.user.id
+        carts = Cart.objects.filter(user_id = userID)
+        carts.delete()
+        return Response({'message':'All Items removed from the cart'}, status.HTTP_200_OK)
